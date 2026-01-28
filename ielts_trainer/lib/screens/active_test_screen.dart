@@ -8,6 +8,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:record/record.dart'; // Версия 5.2.0
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'main_screen.dart';
 
 import '../constants.dart';
 import '../providers/user_provider.dart';
@@ -365,11 +366,13 @@ class _ActiveTestScreenState extends State<ActiveTestScreen> {
     }
   }
 
-  void _finishFullTest() {
+  Future<void> _finishFullTest() async {
+    // 1. Останавливаем все процессы
     _timer?.cancel();
     _audioPlayer.stop();
     _audioRecorder.dispose();
 
+    // 2. Считаем баллы (твой старый код)
     double bandListening = _calculateIELTSBand(
       _listeningCorrectCount,
       isReading: false,
@@ -400,10 +403,47 @@ class _ActiveTestScreenState extends State<ActiveTestScreen> {
         overall = 0.0;
     }
 
+    // Округляем до 0.5
     overall = (overall * 2).round() / 2;
 
-    Provider.of<UserProvider>(context, listen: false).updateUserScore(overall);
+    // 3. Обновляем локально (чтобы юзер увидел сразу)
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    userProvider.updateUserScore(overall);
 
+    // =========================================================
+    // 4. НОВАЯ ЧАСТЬ: СОХРАНЯЕМ В БАЗУ ДАННЫХ (PostgreSQL)
+    // =========================================================
+    try {
+      if (userProvider.userId != null) {
+        // Определяем название теста для истории
+        String typeToSend = widget.isMock ? "Full Mock Test" : widget.testType;
+
+        // Отправляем запрос на сервер
+        final response = await http.post(
+          Uri.parse("$BASE_URL/save_result"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "user_id": userProvider.userId,
+            "test_type": typeToSend,
+            "score": overall,
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          print("✅ Результат успешно сохранен в БД!");
+        } else {
+          print("❌ Ошибка сервера: ${response.body}");
+        }
+      }
+    } catch (e) {
+      print("❌ Ошибка соединения при сохранении: $e");
+    }
+    // =========================================================
+
+    // Проверка, что экран все еще существует после ожидания ответа сервера
+    if (!mounted) return;
+
+    // 5. Переходим на экран результатов
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import 'main_screen.dart';
 
 class ResultScreen extends StatelessWidget {
   final double overallScore; // В одиночном тесте это просто балл за тест
@@ -181,7 +182,7 @@ class ResultScreen extends StatelessWidget {
                   onPressed: () {
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
-                        builder: (context) => const HomeScreen(),
+                        builder: (context) => const MainScreen(),
                       ),
                       (route) => false,
                     );
