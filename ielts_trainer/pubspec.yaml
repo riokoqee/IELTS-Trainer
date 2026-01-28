@@ -14,6 +14,15 @@ dependencies:
   provider: ^6.0.0
   intl: ^0.18.0
   cupertino_icons: ^1.0.8
+  audioplayers: ^6.0.0
+  record: ^5.2.0
+  # Для поиска путей на телефоне
+  path_provider: ^2.1.2
+  # Для запроса прав (микрофон)
+  permission_handler: ^11.3.0
+
+dependency_overrides:
+  record_linux: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -26,6 +35,8 @@ flutter:
 
   assets:
     - assets/fonts/
+    - assets/audio/
+    - assets/images/
   fonts:
     - family: Minecraft
       fonts:

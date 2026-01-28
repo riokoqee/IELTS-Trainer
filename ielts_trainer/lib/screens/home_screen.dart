@@ -1,4 +1,3 @@
-// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
@@ -9,114 +8,215 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = Provider.of<UserProvider>(context);
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Привет, ${user.nickname}!",
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.deepPurple.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.deepPurpleAccent),
+    // Получаем провайдер пользователя
+    final userProvider = Provider.of<UserProvider>(context);
+    final user = userProvider.user;
+
+    // Определяем тему (темная или светлая) для настройки цветов
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 10),
+
+              // --- ПРИВЕТСТВИЕ ---
+              Text(
+                "С возвращением,",
+                style: TextStyle(
+                  fontSize: 16,
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                ),
               ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              const SizedBox(height: 5),
+              Text(
+                user?.nickname ?? 'Студент',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepPurple,
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // --- КАРТОЧКА ПОСЛЕДНЕГО РЕЗУЛЬТАТА ---
+              // (Заменила собой Mock Test)
+              _buildLastResultCard(context, user?.lastScore),
+
+              const SizedBox(height: 30),
+
+              // --- ЗАГОЛОВОК СЕКЦИЙ ---
+              Text(
+                "Практика по секциям",
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 15),
+
+              // --- СЕТКА КНОПОК ---
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                crossAxisSpacing: 15,
+                mainAxisSpacing: 15,
+                childAspectRatio: 1.1,
                 children: [
-                  Text("Последний результат:", style: TextStyle(fontSize: 16)),
-                  Text(
-                    "7.5",
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepPurpleAccent,
-                    ),
+                  _buildSectionCard(
+                    context,
+                    title: "Listening",
+                    icon: Icons.headphones,
+                    color: Colors.blue,
+                    onTap: () => _startTest(context, "Listening", false),
+                  ),
+                  _buildSectionCard(
+                    context,
+                    title: "Reading",
+                    icon: Icons.menu_book,
+                    color: Colors.green,
+                    onTap: () => _startTest(context, "Reading", false),
+                  ),
+                  _buildSectionCard(
+                    context,
+                    title: "Writing",
+                    icon: Icons.edit,
+                    color: Colors.orange,
+                    onTap: () => _startTest(context, "Writing", false),
+                  ),
+                  _buildSectionCard(
+                    context,
+                    title: "Speaking",
+                    icon: Icons.mic,
+                    color: Colors.redAccent,
+                    onTap: () => _startTest(context, "Speaking", false),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 30),
-            const Text("Практика по секциям:", style: TextStyle(fontSize: 18)),
-            const SizedBox(height: 10),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                children: [
-                  _btn(context, "Listening", Icons.headphones),
-                  _btn(context, "Reading", Icons.book),
-                  _btn(context, "Writing", Icons.edit),
-                  _btn(context, "Speaking", Icons.mic),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _btn(BuildContext context, String title, IconData icon) {
-    return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _SectionTestsScreen(sectionName: title),
-        ),
+  // Виджет карточки результата
+  Widget _buildLastResultCard(BuildContext context, double? score) {
+    // Если балла нет, показываем прочерк
+    final String displayScore = score != null ? score.toStringAsFixed(1) : "-";
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.deepPurple.withOpacity(0.3), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.deepPurple.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [const BoxShadow(color: Colors.black12, blurRadius: 4)],
-        ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // --- ИСПРАВЛЕНИЕ ЗДЕСЬ: Оборачиваем текст в Expanded ---
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  "Последний результат",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  // Добавляем защиту от слишком длинного текста
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+                SizedBox(height: 5),
+                Text(
+                  "Overall Band Score",
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 10), // Отступ между текстом и оценкой
+
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.deepPurple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Text(
+              displayScore,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.deepPurple,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Виджет кнопки секции
+  Widget _buildSectionCard(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    // Обязательно используем Material для корректной работы InkWell
+    return Material(
+      color: Theme.of(context).cardColor,
+      elevation: 2,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: color.withOpacity(0.2),
+        highlightColor: color.withOpacity(0.1),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 40, color: Colors.deepPurpleAccent),
-            const SizedBox(height: 10),
-            Text(title),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 32, color: color),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),
     );
   }
-}
 
-// Внутренний виджет выбора теста в секции
-class _SectionTestsScreen extends StatelessWidget {
-  final String sectionName;
-  const _SectionTestsScreen({required this.sectionName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(sectionName)),
-      body: ListView.builder(
-        itemCount: 3,
-        itemBuilder: (ctx, i) => ListTile(
-          title: Text("Test ${i + 1}"),
-          subtitle: const Text("Сложность: Средняя"),
-          trailing: const Icon(Icons.arrow_forward_ios),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    ActiveTestScreen(testType: sectionName, isMock: false),
-              ),
-            );
-          },
-        ),
+  void _startTest(BuildContext context, String type, bool isMock) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ActiveTestScreen(testType: type, isMock: isMock),
       ),
     );
   }

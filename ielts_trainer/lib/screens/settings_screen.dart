@@ -51,7 +51,7 @@ class SettingsScreen extends StatelessWidget {
               // --- НАСТРОЙКИ ЦВЕТОВ ПЕРЕКЛЮЧАТЕЛЯ ---
 
               // Цвет кружочка, когда включено (Темная тема)
-              activeColor: Colors.deepPurpleAccent,
+              activeThumbColor: Colors.deepPurpleAccent,
               // Цвет дорожки, когда включено
               activeTrackColor: Colors.deepPurple.withOpacity(0.5),
 

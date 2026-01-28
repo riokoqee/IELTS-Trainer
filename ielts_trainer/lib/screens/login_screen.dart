@@ -20,11 +20,43 @@ class _LoginScreenState extends State<LoginScreen> {
   final _nickController = TextEditingController();
 
   Future<void> _submit() async {
+    // 1. Очищаем пробелы по краям (на случай если автокоррекция добавила пробел)
+    final email = _emailController.text.trim();
+    final password = _passController.text.trim();
+    final nickname = _nickController.text.trim();
+
+    // 2. Проверка на пустоту
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Заполните все поля!"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // --- НОВАЯ ПРОВЕРКА ПОЧТЫ ---
+    // Переводим в нижний регистр, чтобы GMAIL.COM тоже прошел проверку
+    final emailLower = email.toLowerCase();
+
+    if (!emailLower.endsWith('@gmail.com') &&
+        !emailLower.endsWith('@mail.ru')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Принимаем только @gmail.com или @mail.ru"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return; // Останавливаем выполнение, на сервер не идем
+    }
+    // ----------------------------
+
     final endpoint = isLogin ? "/login" : "/register";
     final body = {
-      "email": _emailController.text,
-      "password": _passController.text,
-      if (!isLogin) "nickname": _nickController.text,
+      "email": email, // Отправляем чистый email без пробелов
+      "password": password,
+      if (!isLogin) "nickname": nickname,
     };
 
     try {
@@ -36,37 +68,40 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['status'] == 'success') {
-          if (!mounted) return;
-          Provider.of<UserProvider>(context, listen: false).setUser(
-            data['user_id'],
-            data.containsKey('nickname')
-                ? data['nickname']
-                : _nickController.text,
-            _emailController.text,
-            avatarStr: data['avatar'],
-          );
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const MainScreen()),
-          );
-        }
-      } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(
+
+        Provider.of<UserProvider>(context, listen: false).setUser(
+          data['user_id'],
+          data.containsKey('nickname') ? data['nickname'] : nickname,
+          email,
+          avatarStr: data['avatar'],
+        );
+
+        Navigator.pushReplacement(
           context,
-        ).showSnackBar(const SnackBar(content: Text("Ошибка входа")));
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+        );
+      } else {
+        String errorText = "Ошибка авторизации";
+        try {
+          final errorData = jsonDecode(response.body);
+          if (errorData['detail'] != null) {
+            errorText = errorData['detail'];
+          }
+        } catch (_) {}
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorText), backgroundColor: Colors.red),
+        );
       }
     } catch (e) {
-      // Fallback для теста без сервера
       if (!mounted) return;
-      Provider.of<UserProvider>(
-        context,
-        listen: false,
-      ).setUser(1, "TestUser", "test@gmail.com");
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainScreen()),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Ошибка соединения: $e"),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }

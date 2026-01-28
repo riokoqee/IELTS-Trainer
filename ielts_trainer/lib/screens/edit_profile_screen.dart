@@ -15,17 +15,16 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _nameController;
   final TextEditingController _passController = TextEditingController();
-  int _selectedAvatarId = 0;
+  String _selectedAvatarStr = "😀"; // Текущий выбранный эмодзи
   bool _isLoading = false;
 
-  // Список цветов для аватарок (заглушка вместо картинок)
-  final List<Color> _avatarColors = [
-    Colors.grey,
-    Colors.blue,
-    Colors.red,
-    Colors.green,
-    Colors.orange,
-    Colors.purple,
+  // НАШ НОВЫЙ СПИСОК ЭМОДЗИ (Можешь добавить свои!)
+  final List<String> _emojis = [
+    "😀", "😎", "🧐", "🥳", "🥶", "🤡",
+    "👾", "🤖", "👽", "👻", "☠️", "💩",
+    "🐶", "🐱", "🦊", "🦁", "🐯", "🦄",
+    "😼", "🐳", // <--- ДОБАВИЛИ НОВЫЕ СЮДА
+    "🍎", "🍔", "🍕", "🍩", "⚽", "🎮",
   ];
 
   @override
@@ -33,9 +32,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     final user = Provider.of<UserProvider>(context, listen: false);
     _nameController = TextEditingController(text: user.nickname);
-    _selectedAvatarId = user.avatarId;
-    // Защита: если ID аватарки больше, чем у нас есть цветов
-    if (_selectedAvatarId >= _avatarColors.length) _selectedAvatarId = 0;
+    _selectedAvatarStr = user.avatarStr;
+    // Если вдруг текущего эмодзи нет в нашем списке, добавляем его, чтобы не потерялся
+    if (!_emojis.contains(_selectedAvatarStr)) {
+      _emojis.insert(0, _selectedAvatarStr);
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -46,9 +47,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final body = {
         "user_id": user.userId,
         "nickname": _nameController.text,
-        "avatar_id": _selectedAvatarId,
-        "password":
-            _passController.text, // Если пустой, сервер его проигнорирует
+        "avatar_str": _selectedAvatarStr, // Отправляем строку
+        "password": _passController.text,
       };
 
       final res = await http.post(
@@ -59,19 +59,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (res.statusCode == 200) {
         // Обновляем данные внутри приложения сразу
-        user.updateLocalUser(_nameController.text, _selectedAvatarId);
+        user.updateLocalUser(_nameController.text, _selectedAvatarStr);
         if (!mounted) return;
         Navigator.pop(context); // Возвращаемся назад
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Профиль обновлен!")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Профиль обновлен!"),
+            backgroundColor: Colors.green,
+          ),
+        );
       } else {
-        throw Exception("Ошибка сервера");
+        throw Exception("Ошибка сервера: ${res.statusCode}");
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Не удалось сохранить изменения")),
+        SnackBar(content: Text("Ошибка: $e"), backgroundColor: Colors.red),
       );
     } finally {
       setState(() => _isLoading = false);
@@ -80,8 +83,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      appBar: AppBar(title: const Text("Редактирование")),
+      appBar: AppBar(title: const Text("Редактирование профиля")),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -90,53 +94,72 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const Center(
               child: Text(
                 "Выберите аватар",
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
             ),
-            const SizedBox(height: 15),
-            // Сетка аватарок
+            const SizedBox(height: 20),
+
+            // СЕТКА ЭМОДЗИ
             Center(
               child: Wrap(
                 spacing: 15,
                 runSpacing: 15,
-                children: List.generate(_avatarColors.length, (index) {
-                  final isSelected = _selectedAvatarId == index;
+                alignment: WrapAlignment.center,
+                children: _emojis.map((emoji) {
+                  final isSelected = _selectedAvatarStr == emoji;
                   return GestureDetector(
-                    onTap: () => setState(() => _selectedAvatarId = index),
-                    child: Container(
+                    onTap: () => setState(() => _selectedAvatarStr = emoji),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: isSelected
-                            ? Border.all(
-                                color: Colors.deepPurpleAccent,
-                                width: 3,
-                              )
-                            : null,
+                        border: Border.all(
+                          color: isSelected
+                              ? Colors.deepPurpleAccent
+                              : Colors.transparent,
+                          width: 3,
+                        ),
+                        color: isSelected
+                            ? Colors.deepPurpleAccent.withOpacity(0.1)
+                            : Colors.transparent,
                       ),
                       child: CircleAvatar(
-                        radius: 30,
-                        backgroundColor: _avatarColors[index],
-                        child: isSelected
-                            ? const Icon(Icons.check, color: Colors.white)
-                            : null,
+                        radius: 28,
+                        backgroundColor: isDark
+                            ? Colors.grey[800]
+                            : Colors.grey[200],
+                        child: Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 32),
+                        ),
                       ),
                     ),
                   );
-                }),
+                }).toList(),
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 40),
 
-            const Text("Никнейм"),
+            const Text(
+              "Никнейм",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 5),
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person),
+              ),
             ),
 
             const SizedBox(height: 20),
 
-            const Text("Новый пароль (необязательно)"),
+            const Text(
+              "Новый пароль (необязательно)",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 5),
             TextField(
               controller: _passController,
@@ -144,6 +167,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 hintText: "Оставьте пустым, если не меняете",
+                prefixIcon: Icon(Icons.lock),
               ),
             ),
 
@@ -151,12 +175,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 55,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _saveProfile,
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("СОХРАНИТЬ"),
+                    : const Text(
+                        "СОХРАНИТЬ ИЗМЕНЕНИЯ",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
               ),
             ),
           ],

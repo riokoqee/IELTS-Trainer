@@ -12,18 +12,8 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  List history = [];
+  List<dynamic> history = [];
   bool isLoading = true;
-
-  // 1. ДОБАВЛЯЕМ СПИСОК ЦВЕТОВ (ТОЧНО ТАКОЙ ЖЕ, КАК В РЕДАКТИРОВАНИИ)
-  final List<Color> _avatarColors = [
-    Colors.grey,
-    Colors.blue,
-    Colors.red,
-    Colors.green,
-    Colors.orange,
-    Colors.purple,
-  ]; // <--- НОВОЕ
 
   @override
   void initState() {
@@ -34,6 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadHistory() async {
     final user = Provider.of<UserProvider>(context, listen: false);
     if (user.userId == null) return;
+
     try {
       final res = await http.get(Uri.parse("$BASE_URL/history/${user.userId}"));
       if (res.statusCode == 200) {
@@ -45,6 +36,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      print("History Error: $e");
       setState(() => isLoading = false);
     }
   }
@@ -53,10 +45,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   double get _averageScore {
     if (history.isEmpty) return 0.0;
     double sum = 0;
+    int validTests = 0;
+
     for (var item in history) {
-      sum += (item[1] as num).toDouble();
+      // ИСПОЛЬЗУЕМ КЛЮЧ 'score' ВМЕСТО ИНДЕКСА [1]
+      final scoreVal = item['score'];
+      if (scoreVal != null) {
+        sum += (scoreVal as num).toDouble();
+        validTests++;
+      }
     }
-    return double.parse((sum / history.length).toStringAsFixed(1));
+
+    if (validTests == 0) return 0.0;
+    return double.parse((sum / validTests).toStringAsFixed(1));
   }
 
   @override
@@ -69,8 +70,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ? const Center(child: CircularProgressIndicator())
           : CustomScrollView(
               slivers: [
+                // --- ШАПКА ПРОФИЛЯ ---
                 SliverAppBar(
-                  expandedHeight: 220.0,
+                  expandedHeight: 240.0,
                   floating: false,
                   pinned: true,
                   backgroundColor: Colors.deepPurple,
@@ -78,41 +80,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     background: Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
                           colors: [
-                            Colors.deepPurple.shade700,
+                            Colors.deepPurple.shade800,
                             Colors.deepPurple.shade400,
                           ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
                         ),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const SizedBox(height: 40),
-
-                          // 2. ЗАМЕНЯЕМ CIRCLE AVATAR НА НОВЫЙ С ЦВЕТАМИ
                           CircleAvatar(
-                            radius: 45,
-                            // Проверяем ID аватарки и ставим цвет
-                            backgroundColor:
-                                (user.avatarId >= 0 &&
-                                    user.avatarId < _avatarColors.length)
-                                ? _avatarColors[user.avatarId]
-                                : Colors.grey,
-                            child: const Icon(
-                              Icons.person,
-                              size: 50,
-                              color: Colors.white,
+                            radius: 50,
+                            backgroundColor: Colors.white,
+                            child: Text(
+                              user.avatarStr,
+                              style: const TextStyle(fontSize: 55),
                             ),
-                          ), // <--- ИЗМЕНЕНО
-
+                          ),
                           const SizedBox(height: 10),
                           Text(
                             user.nickname,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 22,
+                              fontSize: 24,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -129,7 +122,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
 
-                // Блок статистики
+                // --- СТАТИСТИКА ---
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -138,15 +131,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _buildStatCard(
                           "Тестов сдано",
                           "${history.length}",
-                          Icons.assignment_turned_in,
-                          Colors.blueAccent,
+                          Icons.done_all,
+                          Colors.blue,
                         ),
                         const SizedBox(width: 16),
                         _buildStatCard(
                           "Средний балл",
                           "$_averageScore",
                           Icons.star,
-                          Colors.orangeAccent,
+                          Colors.orange,
                         ),
                       ],
                     ),
@@ -164,18 +157,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white70 : Colors.black87,
+                        color: isDark ? Colors.white : Colors.black87,
                       ),
                     ),
                   ),
                 ),
 
-                // Список истории
+                // --- СПИСОК ИСТОРИИ ---
                 history.isEmpty
                     ? const SliverFillRemaining(
                         child: Center(
                           child: Text(
-                            "Вы еще не проходили тесты",
+                            "История пуста",
                             style: TextStyle(color: Colors.grey),
                           ),
                         ),
@@ -183,12 +176,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     : SliverList(
                         delegate: SliverChildBuilderDelegate((context, index) {
                           final item = history[index];
-                          final String testType = item[0];
-                          final double score = (item[1] as num).toDouble();
-                          final String date = item[2].toString().substring(
-                            0,
-                            10,
-                          );
+
+                          // ИСПОЛЬЗУЕМ КЛЮЧИ СЛОВАРЯ (DICT)
+                          final String testType = item['test_type'] ?? "Тест";
+                          final double score =
+                              (item['score'] as num?)?.toDouble() ?? 0.0;
+
+                          // Обработка даты
+                          String dateStr = "Недавно";
+                          if (item['date'] != null) {
+                            // Обычно дата приходит как строка ISO или DateTime
+                            dateStr = item['date'].toString().split('T')[0];
+                          }
 
                           return Card(
                             margin: const EdgeInsets.symmetric(
@@ -201,14 +200,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             child: ListTile(
                               leading: Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
                                   color: Colors.deepPurple.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Icon(
                                   _getIconForType(testType),
-                                  color: Colors.deepPurpleAccent,
+                                  color: Colors.deepPurple,
                                 ),
                               ),
                               title: Text(
@@ -217,7 +216,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              subtitle: Text(date),
+                              subtitle: Text(dateStr),
                               trailing: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
@@ -245,7 +244,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Карточка статистики
   Widget _buildStatCard(
     String title,
     String value,
@@ -260,8 +258,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
+              color: Colors.black12,
+              blurRadius: 8,
               offset: const Offset(0, 4),
             ),
           ],
@@ -285,16 +283,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   IconData _getIconForType(String type) {
-    if (type.contains("Reading")) return Icons.book;
+    if (type.contains("Reading")) return Icons.menu_book;
     if (type.contains("Listening")) return Icons.headphones;
     if (type.contains("Writing")) return Icons.edit;
-    if (type.contains("MOCK")) return Icons.timer;
-    return Icons.article;
+    if (type.contains("Speaking")) return Icons.mic;
+    return Icons.assignment;
   }
 
   Color _getColorForScore(double score) {
-    if (score >= 7.0) return Colors.green;
-    if (score >= 5.0) return Colors.orange;
-    return Colors.redAccent;
+    if (score >= 7.5) return Colors.green;
+    if (score >= 6.0) return Colors.blue;
+    if (score >= 4.5) return Colors.orange;
+    return Colors.red;
   }
 }
